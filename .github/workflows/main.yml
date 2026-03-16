@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - master
+      - feature-*
 
 # Workflow's jobs
 jobs:
