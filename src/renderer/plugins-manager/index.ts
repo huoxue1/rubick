@@ -1,4 +1,4 @@
-import { reactive, toRefs, ref } from 'vue';
+import { reactive, toRefs, ref, watch } from 'vue';
 import { nativeImage, ipcRenderer } from 'electron';
 import { getGlobal } from '@electron/remote';
 import appSearch from '@/core/app-search';
@@ -8,6 +8,7 @@ import commonConst from '@/common/utils/commonConst';
 import { exec } from 'child_process';
 import searchManager from './search';
 import optionsManager from './options';
+import listModeRunner from './listModeRenderer';
 import {
   PLUGIN_INSTALL_DIR as baseDir,
   PLUGIN_HISTORY,
@@ -26,6 +27,7 @@ const createPluginManager = (): any => {
     currentPlugin: {},
     pluginLoading: false,
     pluginHistory: [],
+    listModeItems: [],
   });
 
   const appList: any = ref([]);
@@ -81,6 +83,21 @@ const createPluginManager = (): any => {
       type: 'removePlugin',
     });
     window.initRubick();
+
+    // 检查是否是 mode: list 插件
+    const featureCode = plugin.feature?.code || plugin.features?.[0]?.code;
+    if (plugin.mode === 'list' || (plugin.preload && featureCode)) {
+      // mode: list 插件，直接在主窗口渲染列表
+      state.currentPlugin = plugin;
+      const { list, placeholder } = await listModeRunner.loadPlugin(plugin);
+      state.listModeItems = list;
+      if (placeholder) {
+        window.setSubInput({ placeholder });
+      }
+      state.pluginLoading = false;
+      return;
+    }
+
     if (plugin.pluginType === 'ui' || plugin.pluginType === 'system') {
       if (state.currentPlugin && state.currentPlugin.name === plugin.name) {
         window.rubick.showMainWindow();
@@ -173,6 +190,15 @@ const createPluginManager = (): any => {
     openPlugin,
     currentPlugin: toRefs(state).currentPlugin,
   });
+
+  // mode: list 插件搜索监听
+  watch(searchValue, async (newValue) => {
+    if (state.currentPlugin.mode === 'list') {
+      const items = await listModeRunner.executeSearch(newValue);
+      state.listModeItems = items;
+    }
+  });
+
   // plugin operation
   const getPluginInfo = async ({ pluginName, pluginPath }) => {
     const pluginInfo = await pluginInstance.getAdapterInfo(
@@ -214,9 +240,11 @@ const createPluginManager = (): any => {
 
   window.initRubick = () => {
     state.currentPlugin = {};
+    state.listModeItems = [];
     setSearchValue('');
     setOptionsRef([]);
     window.setSubInput({ placeholder: '' });
+    listModeRunner.unloadPlugin();
   };
 
   window.pluginLoaded = () => {
@@ -250,6 +278,7 @@ const createPluginManager = (): any => {
     readClipboardContent,
     setPluginHistory,
     changePluginHistory,
+    listModeRunner,
   };
 };
 

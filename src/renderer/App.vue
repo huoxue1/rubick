@@ -23,9 +23,11 @@
       :searchValue="searchValue"
       :currentSelect="currentSelect"
       :options="options"
+      :listModeItems="listModeItems"
       :clipboardFile="clipboardFile || []"
       @setPluginHistory="setPluginHistory"
       @choosePlugin="choosePlugin"
+      @onListItemClick="onListItemClick"
     />
   </div>
 </template>
@@ -65,6 +67,7 @@ const {
   pluginHistory,
   setPluginHistory,
   changePluginHistory,
+  listModeItems,
 } = createPluginManager();
 
 initPlugins();
@@ -73,6 +76,15 @@ const currentSelect = ref(0);
 const menuPluginInfo: any = ref({});
 
 const config: any = ref(localConfig.getConfig());
+
+const onListItemClick = async (item) => {
+  const result = await listModeRunner.executeSelect(item);
+  if (result && result.length > 0) {
+    // select 回调返回了新列表，说明是二级菜单
+    listModeItems.value = result;
+  }
+  // 如果返回空数组，说明已经执行完操作（如复制、跳转等），不需要额外处理
+};
 
 getPluginInfo({
   pluginName: 'feature',
@@ -84,9 +96,20 @@ getPluginInfo({
 });
 
 watch(
-  [options, pluginHistory, currentPlugin],
+  [options, pluginHistory, currentPlugin, listModeItems],
   () => {
     currentSelect.value = 0;
+    if (currentPlugin.value.mode === 'list') {
+      window.rubick.setExpendHeight(
+        getWindowHeight(
+          listModeItems.value,
+          pluginLoading.value || !config.value.perf.common.history
+            ? []
+            : pluginHistory.value
+        )
+      );
+      return;
+    }
     if (currentPlugin.value.name) return;
     window.rubick.setExpendHeight(
       getWindowHeight(

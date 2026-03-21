@@ -6,16 +6,13 @@ name: Build
 # Workflow's trigger
 on:
   push:
-    branches:
-      - master
-      - feature-*
 
 # Workflow's jobs
 jobs:
   # job's id
   release:
     # job's name
-    name: build and release electron app
+    name: build and upload artifact
 
     # the type of machine to run the job on
     runs-on: ${{ matrix.os }}
@@ -28,7 +25,6 @@ jobs:
 
     # create steps
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
@@ -59,8 +55,12 @@ jobs:
           cd ./feature
           yarn
           npm run build
-      - name: Build  & release app
+      - name: Build app
         run: |
-          npm run release
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          npm run electron:build -- --publish never
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rubick-${{ matrix.os }}
+          path: build/
+          retention-days: 30

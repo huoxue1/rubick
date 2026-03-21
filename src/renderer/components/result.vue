@@ -46,6 +46,26 @@
       </template>
     </a-list>
   </div>
+  <div v-show="currentPlugin.mode === 'list'" class="list-mode-container">
+    <a-list item-layout="horizontal" :dataSource="listModeItems">
+      <template #renderItem="{ item, index }">
+        <a-list-item
+          @click="() => onListItemClick(item)"
+          @contextmenu.prevent="onListItemContextmenu($event, item)"
+          :class="currentSelect === index ? 'active list-item' : 'list-item'"
+        >
+          <a-list-item-meta :description="item.description">
+            <template #title>
+              <span>{{ item.title }}</span>
+            </template>
+            <template #avatar>
+              <a-avatar :src="item.icon" />
+            </template>
+          </a-list-item-meta>
+        </a-list-item>
+      </template>
+    </a-list>
+  </div>
 </template>
 
 <script lang="ts" setup>
@@ -75,9 +95,21 @@ const props: any = defineProps({
   currentPlugin: {},
   pluginHistory: (() => [])(),
   clipboardFile: (() => [])(),
+  listModeItems: {
+    type: Array,
+    default: (() => [])(),
+  },
 });
 
-const emit = defineEmits(['choosePlugin', 'setPluginHistory']);
+const emit = defineEmits(['choosePlugin', 'setPluginHistory', 'onListItemClick', 'onListItemContextmenu']);
+
+const onListItemClick = (item) => {
+  emit('onListItemClick', item);
+};
+
+const onListItemContextmenu = (e, item) => {
+  emit('onListItemContextmenu', e, item);
+};
 
 const renderTitle = (title, match) => {
   if (typeof title !== 'string') return;
@@ -270,6 +302,35 @@ initMainCmdMenus();
     }
     .ant-list-item-meta-description {
       color: var(--color-text-desc);
+    }
+  }
+  .list-mode-container {
+    position: absolute;
+    top: 60px;
+    left: 0;
+    width: 100%;
+    z-index: 99;
+    max-height: calc(~'100vh - 60px');
+    overflow: auto;
+    background: var(--color-body-bg);
+    .list-item {
+      padding: 0 10px;
+      height: 70px;
+      line-height: 50px;
+      background: var(--color-body-bg);
+      color: var(--color-text-content);
+      border-color: var(--color-border-light);
+      border-bottom: 1px solid var(--color-border-light) !important;
+      cursor: pointer;
+      &.active {
+        background: var(--color-list-hover);
+      }
+      .ant-list-item-meta-title {
+        color: var(--color-text-content);
+      }
+      .ant-list-item-meta-description {
+        color: var(--color-text-desc);
+      }
     }
   }
 }
