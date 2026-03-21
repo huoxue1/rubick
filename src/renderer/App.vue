@@ -68,6 +68,7 @@ const {
   setPluginHistory,
   changePluginHistory,
   listModeItems,
+  listModeRunner,
 } = createPluginManager();
 
 initPlugins();

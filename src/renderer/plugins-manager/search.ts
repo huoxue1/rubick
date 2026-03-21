@@ -1,11 +1,9 @@
 import { reactive, toRefs } from 'vue';
-import listModeRunner from './listModeRenderer';
 
 const searchManager = () => {
   const state = reactive({
     searchValue: '',
     placeholder: '',
-    listModeItems: [],
   });
 
   // search Input operation
@@ -35,18 +33,10 @@ const searchManager = () => {
     };
   };
 
-  // mode: list 插件搜索
-  const searchListModePlugin = async (value: string) => {
-    const items = await listModeRunner.executeSearch(value);
-    state.listModeItems = items;
-    return items;
-  };
-
   return {
     ...toRefs(state),
     onSearch,
     setSearchValue,
-    searchListModePlugin,
   };
 };
 
