@@ -94,6 +94,9 @@ class API extends DBInstance {
     if (input.type !== 'keyDown') return;
     if (!(input.meta || input.control || input.shift || input.alt)) {
       if (input.key === 'Escape') {
+        // 窗口无焦点时收到的 Escape 是 fcitx 在失焦瞬间注入的假按键（取消预编辑），忽略；
+        // 有焦点时说明是用户主动按 Esc，正常关闭
+        if (!window.isFocused()) return;
         if (this.currentPlugin) {
           this.removePlugin(null, window);
         } else {
@@ -176,6 +179,15 @@ class API extends DBInstance {
 
   public hideMainWindow(arg, window) {
     window.hide();
+  }
+
+  public sendToParent({ data }) {
+    // uTools 兼容：把子窗口(createBrowserWindow)发来的事件转发给当前插件视图
+    const view = runnerInstance.getView();
+    if (view && view.webContents && !view.webContents.isDestroyed()) {
+      view.webContents.send(data.channel, data.data);
+    }
+    return true;
   }
 
   public showMainWindow(arg, window) {
