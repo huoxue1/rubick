@@ -52,6 +52,14 @@ window.rubick = {
     });
   },
   /**
+   * 从本地开发目录安装/刷新插件（不复制文件，直接引用源码目录，无需 npm link）
+   * @param {string} sourceDir 插件源码目录绝对路径
+   * @returns {Promise<{ success: boolean, code?: string, message?: string, plugin?: object, requireRestart?: boolean }>}
+   */
+  installDevPlugin(sourceDir) {
+    return ipcRenderer.invoke('rubick:install-dev-plugin', { sourceDir });
+  },
+  /**
    * 把本地插件目录打包成插件包（.rubick / .zip）
    * @param {string} sourceDir 插件目录绝对路径
    * @param {string} [outputPath] 输出文件路径；不传时输出到插件目录同级的 <目录名>.rubick

@@ -7,6 +7,44 @@
         :message="$t('feature.dev.tips')"
         type="warning"
       />
+      <div class="section-title">从本地目录安装（推荐）</div>
+      <p class="section-desc">
+        直接选择插件源码目录（含 <code>plugin.json</code> 或
+        <code>package.json</code>），无需 <code>npm link</code>；插件页面直接指向该目录，
+        修改代码后再次点击「安装 / 刷新」即可重新读取元数据并生效。
+      </p>
+      <a-form :label-col="labelCol" :wrapper-col="wrapperCol">
+        <a-form-item label="插件目录">
+          <div class="path-row">
+            <a-input
+              :value="devPluginState.sourceDir"
+              readonly
+              placeholder="请选择插件源码目录"
+            />
+            <a-button @click="chooseDevPluginDir">选择目录</a-button>
+          </div>
+        </a-form-item>
+        <a-form-item :wrapper-col="{ span: 14, offset: 4 }">
+          <a-button
+            type="primary"
+            :loading="devInstalling"
+            :disabled="!devPluginState.sourceDir"
+            @click="installOrRefreshDevPlugin"
+          >
+            安装 / 刷新插件
+          </a-button>
+          <a-button
+            v-if="devPluginState.sourceDir"
+            style="margin-left: 10px"
+            @click="showDevPluginDir"
+          >
+            在文件夹中显示
+          </a-button>
+        </a-form-item>
+      </a-form>
+
+      <a-divider />
+      <div class="section-title">通过 npm link 安装（可选）</div>
       <a-form
         ref="formRef"
         :model="formState"
@@ -84,7 +122,9 @@
 import { reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { useStore } from 'vuex';
 const { t } = useI18n();
+const store = useStore();
 const path = window.require('path');
 
 const formRef = ref();
@@ -123,6 +163,54 @@ const refresh = () => {
       t('feature.dev.refreshSuccess', { pluginName: formState.name })
     );
   });
+};
+
+// ==================== 本地目录安装 / 刷新 ====================
+const devInstalling = ref(false);
+const devPluginState = reactive({
+  sourceDir: '',
+});
+
+const chooseDevPluginDir = () => {
+  const result = window.rubick.showOpenDialog({
+    title: '选择插件源码目录',
+    properties: ['openDirectory'],
+  });
+  const sourceDir = Array.isArray(result) ? result[0] : '';
+  if (sourceDir) {
+    devPluginState.sourceDir = sourceDir;
+  }
+};
+
+const showDevPluginDir = () => {
+  if (devPluginState.sourceDir) {
+    window.rubick.shellOpenPath(devPluginState.sourceDir);
+  }
+};
+
+const installOrRefreshDevPlugin = async () => {
+  if (!devPluginState.sourceDir) {
+    message.warning('请先选择插件源码目录');
+    return;
+  }
+  devInstalling.value = true;
+  try {
+    const result = await window.rubick.installDevPlugin(
+      devPluginState.sourceDir
+    );
+    if (result && result.success) {
+      message.success(result.message || '插件已安装');
+      store.commit('commonUpdate', {
+        localPlugins: window.market.getLocalPlugins(),
+      });
+    } else {
+      message.error((result && result.message) || '插件安装失败');
+    }
+  } catch (e) {
+    message.error(`插件安装失败：${e && e.message ? e.message : e}`);
+  } finally {
+    devInstalling.value = false;
+  }
 };
 
 // ==================== 插件打包 ====================

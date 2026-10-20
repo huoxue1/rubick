@@ -199,7 +199,7 @@ const normalizeFeatures = (features: any): Array<Record<string, any>> => {
   return features.filter((feature) => feature && typeof feature === 'object');
 };
 
-interface ParsedPlugin {
+export interface ParsedPlugin {
   name: string;
   pluginType: 'ui' | 'system';
   main?: string;
@@ -216,7 +216,7 @@ interface ParsedPlugin {
  * 读取并校验插件元数据。
  * plugin.json 优先，没有时回退到 package.json；两者都存在时以 plugin.json 为准。
  */
-const parsePluginMetadata = (root: string): ParsedPlugin => {
+export const parsePluginMetadata = (root: string): ParsedPlugin => {
   const pluginJsonPath = path.join(root, 'plugin.json');
   const packageJsonPath = path.join(root, 'package.json');
   const pluginJson = isFile(pluginJsonPath)
@@ -344,7 +344,7 @@ const parsePluginMetadata = (root: string): ParsedPlugin => {
 };
 
 /** 相对路径的 logo 转成 file:// URL，绝对/远端/data URL 保持不变 */
-const resolveLogo = (pluginDir: string, logo?: string): string | undefined => {
+export const resolveLogo = (pluginDir: string, logo?: string): string | undefined => {
   if (!logo) return undefined;
   if (/^(https?:|data:|file:)/i.test(logo)) return logo;
   try {

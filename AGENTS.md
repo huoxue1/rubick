@@ -438,6 +438,7 @@ window.rubick.screenCapture((dataURL) => {
 |---|---|
 | `rubick.createBrowserWindow(url, options, callback)` | 由插件创建独立 BrowserWindow。`options.name` 用来定位插件目录（目前按 npm 插件目录解析），`options.webPreferences.preload` 必填；`callback` 在 `dom-ready` 时调用。**本地插件包安装的插件暂不支持此 API**（找不到 `node_modules/<name>`），可改用 Node 的 `@electron/remote` 自行创建窗口 |
 | `rubick.installPluginFromZip(filePath, options?)` | 从插件包（`.rubick` / `.zip`）安装插件（应用级能力，返回 Promise；普通插件一般不需要） |
+| `rubick.installDevPlugin(sourceDir)` | 从本地插件源码目录安装/刷新插件（不复制、无需 npm link；插件市场「开发者」页使用） |
 | `rubick.packLocalPlugin(sourceDir, outputPath?)` | 把本地插件目录打包成 `.rubick` / `.zip`（应用级能力，返回 Promise；插件市场「开发者」页使用） |
 | `rubick.redirect(label, payload)` | ⚠️ 尚未实现（todo） |
 
@@ -546,16 +547,25 @@ node /path/to/rubick/scripts/pack-plugin.js .
 3. 输入 `plugin.json` 里配置的命令词即可打开插件；
 4. 修改代码后重新 `plugin:pack` 并再拖一次（会询问是否覆盖）。
 
-### 5.2 npm link 方式（市场开发者页）
+### 5.2 开发者页方式（本地目录 / npm link）
 
-仓库内置「开发者」入口（插件市场 → 账户菜单 → 开发者）：
+仓库内置「开发者」入口：插件市场 → 账户菜单 → 开发者。
+
+**方式一：从本地目录安装（推荐，无需 npm link）**
+
+1. 点击「选择目录」，选中插件源码目录（需含 `plugin.json` 或 `package.json`）；
+2. 点击「安装 / 刷新插件」：Rubick 直接引用该目录（不复制文件、不注册全局 npm 包）；
+3. 修改插件代码或元数据后，再次点击「安装 / 刷新插件」即可重新读取并生效；
+4. 记录为 `source: "dev"` + `localPath`，卸载时只移除插件记录，**不会删除开发者源码目录**。
+
+**方式二：npm link（可选）**
 
 1. 插件项目目录执行 `npm link`（把本地包链接到全局）；
 2. 打开 Rubick → 插件市场 → 开发者 → 输入 `package.json` 的 `name` → 安装；
 3. 修改代码后点「刷新插件」（会重新读取插件 `package.json`）；
 4. 这种方式安装的插件记录带 `isDev`，不经过 npm registry。
 
-开发者页下半部分还有「打包插件」功能：选择本地插件目录 → 选择输出位置（默认 `<目录名>.rubick`）
+开发者页最下方还有「打包插件」功能：选择本地插件目录 → 选择输出位置（默认 `<目录名>.rubick`）
 → 点击「开始打包」，即可生成可直接拖入 Rubick 安装的插件包，无需依赖命令行 / 系统 zip。
 
 ### 5.3 前端热更新（`development` 字段）
@@ -691,7 +701,7 @@ hooks:      onPluginEnter | onPluginReady | onPluginOut | onShow | onHide
 截图:        screenCapture
 插件控制:    openPlugin | removePlugin | outPlugin | getFeatures | setFeature | removeFeature
 平台/主题:   isMacOs | isWindows | isLinux | theme | isDarkColors(bug)
-高级:        createBrowserWindow | installPluginFromZip | packLocalPlugin | redirect(todo)
+高级:        createBrowserWindow | installPluginFromZip | installDevPlugin | packLocalPlugin | redirect(todo)
 ```
 
 已知限制（当前版本）：
@@ -715,5 +725,6 @@ hooks:      onPluginEnter | onPluginReady | onPluginOut | onShow | onHide
   - 系统插件：[src/main/common/registerSystemPlugin.ts](src/main/common/registerSystemPlugin.ts)
   - npm 插件管理：[src/core/plugin-handler/index.ts](src/core/plugin-handler/index.ts)
   - 插件包安装：[src/main/common/installLocalPlugin.ts](src/main/common/installLocalPlugin.ts)、[src/main/common/pluginInstaller.ts](src/main/common/pluginInstaller.ts)
-  - 插件打包：[src/main/common/packLocalPlugin.ts](src/main/common/packLocalPlugin.ts)、[src/main/common/pluginPackager.ts](src/main/common/pluginPackager.ts)、[feature/src/views/dev/index.vue](feature/src/views/dev/index.vue)
+  - 插件打包：[src/main/common/packLocalPlugin.ts](src/main/common/packLocalPlugin.ts)、[src/main/common/pluginPackager.ts](src/main/common/pluginPackager.ts)
+  - 本地目录安装/刷新：[src/main/common/installDevPlugin.ts](src/main/common/installDevPlugin.ts)、[feature/src/views/dev/index.vue](feature/src/views/dev/index.vue)
   - 本地插件包使用说明：[docs/local-plugin-package.md](docs/local-plugin-package.md)

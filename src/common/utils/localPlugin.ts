@@ -123,8 +123,10 @@ global.LOCAL_PLUGINS = {
     fs.writeFileSync(configPath, JSON.stringify(global.LOCAL_PLUGINS.PLUGINS));
   },
   async deletePlugin(plugin) {
-    // 本地插件包由安装器直接管理目录，不经过 npm uninstall
-    if (plugin && plugin.source === 'zip' && plugin.localPath) {
+    if (plugin && plugin.source === 'dev') {
+      // 开发目录安装：只移除插件记录，绝不删除开发者的源码目录
+    } else if (plugin && plugin.source === 'zip' && plugin.localPath) {
+      // 本地插件包由安装器直接管理目录，不经过 npm uninstall
       const pluginDir = path.resolve(plugin.localPath);
       const safeRoot = path.resolve(baseDir) + path.sep;
       if (pluginDir.startsWith(safeRoot) && fs.existsSync(pluginDir)) {
