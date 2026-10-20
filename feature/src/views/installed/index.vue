@@ -1,6 +1,14 @@
 <template>
   <div class="installed">
-    <div class="view-title">{{ $t('feature.installed.title') }}</div>
+    <div class="installed-header">
+      <div class="view-title">{{ $t('feature.installed.title') }}</div>
+      <a-button type="primary" size="small" @click="installFromZip">
+        <template #icon>
+          <ImportOutlined />
+        </template>
+        安装本地插件
+      </a-button>
+    </div>
     <div class="view-container">
       <div v-if="!localPlugins.length">
         <a-result
@@ -108,7 +116,7 @@
 
 <script setup>
 import { useStore } from 'vuex';
-import { computed, ref, toRaw, watch } from 'vue';
+import { computed, nextTick, ref, toRaw, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import path from 'path';
 import {
@@ -116,6 +124,7 @@ import {
   PushpinFilled,
   CaretRightOutlined,
   DownOutlined,
+  ImportOutlined,
 } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
 
@@ -244,6 +253,47 @@ const gotoFinder = () => {
   router.push('/finder');
   store.commit('commonUpdate', { active: ['finder'] });
 };
+
+// ==================== 本地插件包安装 ====================
+const installLocalPlugin = async (filePath, overwrite = false) => {
+  try {
+    const result = await window.rubick.installPluginFromZip(filePath, {
+      overwrite,
+    });
+    if (result && result.success) {
+      message.success(result.message || '插件安装成功');
+      // 直接同步本地插件列表，避免离线环境下触发插件市场网络请求
+      store.commit('commonUpdate', {
+        localPlugins: window.market.getLocalPlugins(),
+      });
+      await nextTick();
+      if (result.plugin && result.plugin.name) {
+        currentSelect.value = [result.plugin.name];
+      }
+      return;
+    }
+    if (result && result.code === 'PLUGIN_EXISTS') {
+      if (window.confirm(`${result.message}\n\n是否覆盖安装？`)) {
+        await installLocalPlugin(filePath, true);
+      }
+      return;
+    }
+    message.error((result && result.message) || '插件安装失败');
+  } catch (e) {
+    message.error(`插件安装失败：${e && e.message ? e.message : e}`);
+  }
+};
+
+const installFromZip = async () => {
+  const result = await window.rubick.showOpenDialog({
+    title: '选择 Rubick 插件压缩包',
+    properties: ['openFile'],
+    filters: [{ name: 'Rubick 插件包（.rubick / .zip）', extensions: ['rubick', 'zip'] }],
+  });
+  const filePath = Array.isArray(result) ? result[0] : '';
+  if (!filePath) return;
+  await installLocalPlugin(filePath);
+};
 </script>
 
 <style lang="less" scoped>
@@ -252,6 +302,15 @@ const gotoFinder = () => {
   width: 100%;
   overflow: hidden;
   height: calc(~'100vh - 34px');
+  .installed-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    .view-title {
+      margin-bottom: 0;
+    }
+  }
   .view-title {
     font-size: 16px;
     font-weight: 500;

@@ -23,6 +23,8 @@ import '../common/utils/localPlugin';
 
 import checkVersion from './common/versionHandler';
 import registerSystemPlugin from './common/registerSystemPlugin';
+import initPluginInstaller from './common/pluginInstaller';
+import initPluginPackager from './common/pluginPackager';
 
 class App {
   public windowCreator: { init: () => void; getWindow: () => BrowserWindow };
@@ -74,6 +76,8 @@ class App {
       this.createWindow();
       const mainWindow = this.windowCreator.getWindow();
       API.init(mainWindow);
+      initPluginInstaller();
+      initPluginPackager();
       createTray(this.windowCreator.getWindow());
       registerHotKey(this.windowCreator.getWindow());
       this.systemPlugins.triggerReadyHooks(
@@ -100,9 +104,24 @@ class App {
         if (win.isMinimized()) {
           win.restore();
         }
+        // Wayland 修复：不信任 isVisible()（在 Wayland 下半映射状态会误报），
+        // 每次二次启动都无条件执行完整的 置顶→映射→聚焦 序列
+        win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+        win.setAlwaysOnTop(true);
+        win.show();
         win.focus();
+        win.webContents.focus();
+        // 注意：不要取消 visibleOnAllWorkspaces，否则会触发工作区切换→blur→自动隐藏
+        setTimeout(() => {
+          // 保持 AlwaysOnTop 不取消： launcher 类窗口本就该置顶，且取消置顶可能触发焦点被 shell 抢走
+          win.focus();
+          win.webContents.focus();
+          // DOM 级兜底聚焦：确保按键落在搜索输入框而不是 document.body
+          win.webContents.executeJavaScript(
+            `(function(){var el=document.querySelector('input')||document.querySelector('[contenteditable="true"]'); if(el){el.focus(); if(el.select)el.select();} })()`
+          ).catch(() => {});
+        }, 150);
         if (files.length > 0) {
-          win.show();
           putFileToRubick(win.webContents, files);
         }
       }

@@ -70,8 +70,8 @@ const createPluginManager = (): any => {
     });
     state.pluginLoading = true;
     state.currentPlugin = plugin;
-    // 自带的插件不需要检测更新
-    if (plugin.name === 'rubick-system-feature') return;
+    // 自带的插件不需要检测更新；本地插件包不经过 npm，也不检测更新
+    if (plugin.name === 'rubick-system-feature' || plugin.localPath) return;
     await pluginInstance.upgrade(plugin.name);
     state.pluginLoading = false;
   };

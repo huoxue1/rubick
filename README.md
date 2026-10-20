@@ -39,6 +39,7 @@ If you don't want the function, you can click the logo on the left to enter the 
 
 ## Feature list
 - [x] Plugin management based on the npm package pattern, installing plugins is as simple as installing npm packages.
+- [x] Install local plugins from `.rubick` / `.zip` packages by drag & drop, no npm registry required ([docs](./docs/local-plugin-package.md)).
 - [x] Supports WebDAV for multi-device data synchronization, ensuring true data security synchronization.
 - [x] A unique system plugin mode that allows plugins to become an integral part of Rubick.
 - [x] Supports the quick launch of local apps, files, and folders.
