@@ -51,6 +51,18 @@ window.rubick = {
       overwrite: !!options.overwrite,
     });
   },
+  /**
+   * 把本地插件目录打包成插件包（.rubick / .zip）
+   * @param {string} sourceDir 插件目录绝对路径
+   * @param {string} [outputPath] 输出文件路径；不传时输出到插件目录同级的 <目录名>.rubick
+   * @returns {Promise<{ success: boolean, code?: string, message?: string, filePath?: string, fileCount?: number, bytes?: number, warnings?: string[] }>}
+   */
+  packLocalPlugin(sourceDir, outputPath) {
+    return ipcRenderer.invoke('rubick:pack-plugin', {
+      sourceDir,
+      outputPath,
+    });
+  },
   onShow(cb) {
     typeof cb === 'function' && (window.rubick.hooks.onShow = cb);
   },

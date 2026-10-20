@@ -84,6 +84,16 @@ module.exports = () => ({
 
 ## 2. 打包
 
+### 方式一：Rubick 开发者页（推荐给插件作者）
+
+打开插件市场 → 账户菜单 → **开发者** → 页面下方的「打包插件」：
+
+1. 选择插件目录（目录内需有 `plugin.json` 或 `package.json`）；
+2. 选择输出位置（默认输出到插件目录同级的 `<目录名>.rubick`）；
+3. 点击「开始打包」，完成后可直接在文件夹中查看，拖入 Rubick 即可安装。
+
+### 方式二：仓库脚本
+
 如果插件目录里已经有 `plugin.json`，可以直接用仓库内置脚本打包（默认输出 `.rubick`）：
 
 ```bash
@@ -95,6 +105,8 @@ yarn plugin:pack ./path/to/my-plugin ./dist/my-plugin.rubick
 # 也可以在插件项目目录内直接调用脚本
 node /path/to/rubick/scripts/pack-plugin.js .
 ```
+
+### 方式三：手动打包
 
 等价的手动打包方式（`.rubick` 和 `.zip` 都是 zip 容器，改后缀即可互换）：
 

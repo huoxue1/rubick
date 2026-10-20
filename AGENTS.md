@@ -438,6 +438,7 @@ window.rubick.screenCapture((dataURL) => {
 |---|---|
 | `rubick.createBrowserWindow(url, options, callback)` | 由插件创建独立 BrowserWindow。`options.name` 用来定位插件目录（目前按 npm 插件目录解析），`options.webPreferences.preload` 必填；`callback` 在 `dom-ready` 时调用。**本地插件包安装的插件暂不支持此 API**（找不到 `node_modules/<name>`），可改用 Node 的 `@electron/remote` 自行创建窗口 |
 | `rubick.installPluginFromZip(filePath, options?)` | 从插件包（`.rubick` / `.zip`）安装插件（应用级能力，返回 Promise；普通插件一般不需要） |
+| `rubick.packLocalPlugin(sourceDir, outputPath?)` | 把本地插件目录打包成 `.rubick` / `.zip`（应用级能力，返回 Promise；插件市场「开发者」页使用） |
 | `rubick.redirect(label, payload)` | ⚠️ 尚未实现（todo） |
 
 `createBrowserWindow` 示例：
@@ -554,6 +555,9 @@ node /path/to/rubick/scripts/pack-plugin.js .
 3. 修改代码后点「刷新插件」（会重新读取插件 `package.json`）；
 4. 这种方式安装的插件记录带 `isDev`，不经过 npm registry。
 
+开发者页下半部分还有「打包插件」功能：选择本地插件目录 → 选择输出位置（默认 `<目录名>.rubick`）
+→ 点击「开始打包」，即可生成可直接拖入 Rubick 安装的插件包，无需依赖命令行 / 系统 zip。
+
 ### 5.3 前端热更新（`development` 字段）
 
 在 Rubick 以开发模式（`yarn electron:serve`）启动时，插件元数据里配置：
@@ -598,7 +602,11 @@ require('@electron/remote').getCurrentWebContents().openDevTools();
 > [src/common/constans/pluginPackage.ts](src/common/constans/pluginPackage.ts)、[scripts/pack-plugin.js](scripts/pack-plugin.js)、
 > [feature/src/App.vue](feature/src/App.vue)、[feature/src/views/installed/index.vue](feature/src/views/installed/index.vue)。
 
-**方式一：仓库脚本**
+**方式一：Rubick 开发者页**
+
+插件市场 → 账户菜单 → 开发者 → 「打包插件」→ 选择插件目录 → 开始打包。
+
+**方式二：仓库脚本**
 
 ```bash
 yarn plugin:pack ./path/to/my-plugin
@@ -607,7 +615,7 @@ yarn plugin:pack ./path/to/my-plugin ./dist/my-plugin.rubick
 
 脚本实现见 [scripts/pack-plugin.js](scripts/pack-plugin.js)：默认输出 `.rubick`，自动排除 `node_modules`、`.git`、`.zip`、`.rubick`、`.DS_Store`。
 
-**方式二：手动打包**
+**方式三：手动打包**
 
 ```bash
 # macOS / Linux（.rubick / .zip 本质都是 zip，改后缀即可）
@@ -683,7 +691,7 @@ hooks:      onPluginEnter | onPluginReady | onPluginOut | onShow | onHide
 截图:        screenCapture
 插件控制:    openPlugin | removePlugin | outPlugin | getFeatures | setFeature | removeFeature
 平台/主题:   isMacOs | isWindows | isLinux | theme | isDarkColors(bug)
-高级:        createBrowserWindow | installPluginFromZip | redirect(todo)
+高级:        createBrowserWindow | installPluginFromZip | packLocalPlugin | redirect(todo)
 ```
 
 已知限制（当前版本）：
@@ -707,4 +715,5 @@ hooks:      onPluginEnter | onPluginReady | onPluginOut | onShow | onHide
   - 系统插件：[src/main/common/registerSystemPlugin.ts](src/main/common/registerSystemPlugin.ts)
   - npm 插件管理：[src/core/plugin-handler/index.ts](src/core/plugin-handler/index.ts)
   - 插件包安装：[src/main/common/installLocalPlugin.ts](src/main/common/installLocalPlugin.ts)、[src/main/common/pluginInstaller.ts](src/main/common/pluginInstaller.ts)
+  - 插件打包：[src/main/common/packLocalPlugin.ts](src/main/common/packLocalPlugin.ts)、[src/main/common/pluginPackager.ts](src/main/common/pluginPackager.ts)、[feature/src/views/dev/index.vue](feature/src/views/dev/index.vue)
   - 本地插件包使用说明：[docs/local-plugin-package.md](docs/local-plugin-package.md)
