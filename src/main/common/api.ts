@@ -145,7 +145,9 @@ class API extends DBInstance {
         ? 'http://localhost:8081/#/'
         : `file://${__static}/feature/index.html`;
     } else if (!plugin.indexPath) {
-      const pluginPath = path.resolve(baseDir, 'node_modules', plugin.name);
+      // 本地 zip 插件记录 localPath，npm 插件走 node_modules
+      const pluginPath =
+        plugin.localPath || path.resolve(baseDir, 'node_modules', plugin.name);
       plugin.indexPath = `file://${path.join(
         pluginPath,
         './',

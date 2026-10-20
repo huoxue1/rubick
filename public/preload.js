@@ -39,6 +39,18 @@ window.rubick = {
   openPlugin(plugin) {
     ipcSendSync('loadPlugin', plugin);
   },
+  /**
+   * 从本地 zip 压缩包安装插件
+   * @param {string} filePath 压缩包绝对路径
+   * @param {{ overwrite?: boolean }} options
+   * @returns {Promise<{ success: boolean, code?: string, message?: string, plugin?: object, requireRestart?: boolean }>}
+   */
+  installPluginFromZip(filePath, options = {}) {
+    return ipcRenderer.invoke('rubick:install-plugin-zip', {
+      filePath,
+      overwrite: !!options.overwrite,
+    });
+  },
   onShow(cb) {
     typeof cb === 'function' && (window.rubick.hooks.onShow = cb);
   },

@@ -11,7 +11,8 @@ export default function pluginClickEvent({
   openPlugin,
   option,
 }) {
-  const pluginPath = path.resolve(baseDir, 'node_modules', plugin.name);
+  const pluginPath =
+    plugin.localPath || path.resolve(baseDir, 'node_modules', plugin.name);
   const pluginDist = {
     ...toRaw(plugin),
     indexPath: `file://${path.join(pluginPath, './', plugin.main || '')}`,

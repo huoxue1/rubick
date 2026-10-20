@@ -27,11 +27,17 @@
       @setPluginHistory="setPluginHistory"
       @choosePlugin="choosePlugin"
     />
+    <div v-if="draggingPlugin" class="plugin-drag-mask">
+      <div class="plugin-drag-mask__inner">
+        松开鼠标，安装插件压缩包
+        <span>支持 .zip 格式的 Rubick 本地插件包</span>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { watch, ref, toRaw } from 'vue';
+import { watch, ref, toRaw, onMounted, onUnmounted } from 'vue';
 import { exec } from 'child_process';
 import Result from './components/result.vue';
 import Search from './components/search.vue';
@@ -45,6 +51,7 @@ import localConfig from './confOp';
 
 const { onMouseDown } = useDrag();
 const remote = window.require('@electron/remote');
+const { webUtils } = window.require('electron');
 
 const {
   initPlugins,
@@ -174,6 +181,101 @@ const choosePlugin = (plugin) => {
 const clearSearchValue = () => {
   setSearchValue('');
 };
+
+// ==================== 本地 zip 插件拖拽安装 ====================
+const draggingPlugin = ref(false);
+
+const isZipFile = (filePath: string) =>
+  /\.zip$/i.test(String(filePath || '').trim());
+
+const installPluginZip = async (filePath: string, overwrite = false) => {
+  try {
+    const result = await window.rubick.installPluginFromZip(filePath, {
+      overwrite,
+    });
+    if (result && result.success) {
+      const pluginName =
+        (result.plugin && (result.plugin.pluginName || result.plugin.name)) ||
+        '插件';
+      message.success(result.message || `插件「${pluginName}」安装成功`);
+      return;
+    }
+    if (result && result.code === 'PLUGIN_EXISTS') {
+      if (window.confirm(`${result.message}\n\n是否覆盖安装？`)) {
+        await installPluginZip(filePath, true);
+      }
+      return;
+    }
+    message.error((result && result.message) || '插件安装失败');
+  } catch (e: any) {
+    message.error(`插件安装失败：${e && e.message ? e.message : e}`);
+  }
+};
+
+const hasDraggedFiles = (event: DragEvent) => {
+  try {
+    return Array.from(event.dataTransfer?.types || []).includes('Files');
+  } catch (e) {
+    return false;
+  }
+};
+
+const onPluginDragEnter = (event: DragEvent) => {
+  if (!hasDraggedFiles(event)) return;
+  event.preventDefault();
+  draggingPlugin.value = true;
+};
+
+const onPluginDragOver = (event: DragEvent) => {
+  if (!hasDraggedFiles(event)) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+  draggingPlugin.value = true;
+};
+
+const onPluginDragLeave = (event: DragEvent) => {
+  if (event.relatedTarget === null) draggingPlugin.value = false;
+};
+
+const onPluginDrop = async (event: DragEvent) => {
+  if (!hasDraggedFiles(event)) return;
+  event.preventDefault();
+  draggingPlugin.value = false;
+  const files = Array.from(event.dataTransfer?.files || []);
+  const filePaths = files
+    .map((file) => {
+      try {
+        return webUtils.getPathForFile(file);
+      } catch (e) {
+        return '';
+      }
+    })
+    .filter(Boolean);
+  const zipPaths = filePaths.filter(isZipFile);
+  if (!zipPaths.length) {
+    message.warning('仅支持拖入 .zip 格式的插件压缩包');
+    return;
+  }
+  for (const zipPath of zipPaths) {
+    // 逐个安装，避免多个压缩包同时解压时 UI 反馈错乱
+    // eslint-disable-next-line no-await-in-loop
+    await installPluginZip(zipPath);
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('dragenter', onPluginDragEnter);
+  window.addEventListener('dragover', onPluginDragOver);
+  window.addEventListener('dragleave', onPluginDragLeave);
+  window.addEventListener('drop', onPluginDrop);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('dragenter', onPluginDragEnter);
+  window.removeEventListener('dragover', onPluginDragOver);
+  window.removeEventListener('dragleave', onPluginDragLeave);
+  window.removeEventListener('drop', onPluginDrop);
+});
 </script>
 
 <style lang="less">
@@ -187,6 +289,36 @@ const clearSearchValue = () => {
   }
   &.drag {
     -webkit-app-region: drag;
+  }
+  .plugin-drag-mask {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    box-sizing: border-box;
+    border: 2px dashed var(--ant-primary-color, #ff4ea4);
+    border-radius: 8px;
+    background: rgba(255, 78, 164, 0.08);
+    &__inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--ant-primary-color, #ff4ea4);
+      span {
+        margin-top: 4px;
+        font-size: 12px;
+        font-weight: normal;
+        color: var(--color-text-desc, #999);
+      }
+    }
   }
 }
 </style>

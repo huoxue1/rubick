@@ -12,14 +12,13 @@ export default () => {
   systemPlugins = systemPlugins
     .map((plugin) => {
       try {
-        const pluginPath = path.resolve(
-          PLUGIN_INSTALL_DIR,
-          'node_modules',
-          plugin.name
-        );
+        // 本地 zip 插件记录 localPath，npm 插件走 node_modules
+        const pluginPath =
+          plugin.localPath ||
+          path.resolve(PLUGIN_INSTALL_DIR, 'node_modules', plugin.name);
         return {
           ...plugin,
-          indexPath: path.join(pluginPath, './', plugin.entry),
+          indexPath: path.join(pluginPath, './', plugin.entry || plugin.main),
         };
       } catch (e) {
         return false;

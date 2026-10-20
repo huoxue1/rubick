@@ -23,6 +23,7 @@ import '../common/utils/localPlugin';
 
 import checkVersion from './common/versionHandler';
 import registerSystemPlugin from './common/registerSystemPlugin';
+import initPluginInstaller from './common/pluginInstaller';
 
 class App {
   public windowCreator: { init: () => void; getWindow: () => BrowserWindow };
@@ -74,6 +75,7 @@ class App {
       this.createWindow();
       const mainWindow = this.windowCreator.getWindow();
       API.init(mainWindow);
+      initPluginInstaller();
       createTray(this.windowCreator.getWindow());
       registerHotKey(this.windowCreator.getWindow());
       this.systemPlugins.triggerReadyHooks(

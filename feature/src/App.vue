@@ -98,12 +98,19 @@
         <router-view />
       </keep-alive>
     </div>
+    <div v-if="draggingPlugin" class="plugin-drag-mask">
+      <div class="plugin-drag-mask__inner">
+        松开鼠标，安装插件压缩包
+        <span>支持 .zip 格式的 Rubick 本地插件包</span>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { message } from 'ant-design-vue';
 import {
   StarOutlined,
   SendOutlined,
@@ -119,6 +126,7 @@ import {
 import { useStore } from 'vuex';
 import localConfig from '@/confOp';
 
+const { webUtils } = window.require('electron');
 const store = useStore();
 const router = useRouter();
 const active = computed(() => store.state.active);
@@ -156,6 +164,111 @@ window.rubick.setSubInput((e: any) => {
     }
   }
 }, '搜索插件');
+
+// ==================== 本地 zip 插件拖拽安装 ====================
+const draggingPlugin = ref(false);
+
+const isZipFile = (filePath: string) =>
+  /\.zip$/i.test(String(filePath || '').trim());
+
+const getDroppedFilePaths = (event: DragEvent) =>
+  Array.from(event.dataTransfer?.files || [])
+    .map((file) => {
+      try {
+        return webUtils.getPathForFile(file);
+      } catch (e) {
+        return '';
+      }
+    })
+    .filter(Boolean);
+
+const installPluginZip = async (filePath: string, overwrite = false) => {
+  try {
+    const result = await window.rubick.installPluginFromZip(filePath, {
+      overwrite,
+    });
+    if (result && result.success) {
+      const pluginName =
+        (result.plugin && (result.plugin.pluginName || result.plugin.name)) ||
+        '插件';
+      message.success(result.message || `插件「${pluginName}」安装成功`);
+      // 直接同步本地插件列表，避免离线环境下触发插件市场网络请求
+      store.commit('commonUpdate', {
+        localPlugins: window.market.getLocalPlugins(),
+      });
+      return;
+    }
+    if (result && result.code === 'PLUGIN_EXISTS') {
+      if (window.confirm(`${result.message}\n\n是否覆盖安装？`)) {
+        await installPluginZip(filePath, true);
+      }
+      return;
+    }
+    message.error((result && result.message) || '插件安装失败');
+  } catch (e: any) {
+    message.error(`插件安装失败：${e && e.message ? e.message : e}`);
+  }
+};
+
+const hasDraggedFiles = (event: DragEvent) => {
+  try {
+    return Array.from(event.dataTransfer?.types || []).includes('Files');
+  } catch (e) {
+    return false;
+  }
+};
+
+const onPluginDragEnter = (event: DragEvent) => {
+  if (!hasDraggedFiles(event)) return;
+  event.preventDefault();
+  draggingPlugin.value = true;
+};
+
+const onPluginDragOver = (event: DragEvent) => {
+  if (!hasDraggedFiles(event)) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+  draggingPlugin.value = true;
+};
+
+const onPluginDragLeave = (event: DragEvent) => {
+  if (event.relatedTarget === null) draggingPlugin.value = false;
+};
+
+const onPluginDrop = async (event: DragEvent) => {
+  draggingPlugin.value = false;
+  const filePaths = getDroppedFilePaths(event);
+  if (!filePaths.length) return;
+  // 阻止 Electron 把拖入的文件当作页面导航
+  event.preventDefault();
+  const zipPaths = filePaths.filter(isZipFile);
+  if (!zipPaths.length) {
+    // 非插件压缩包交给页面内自己的 drop 逻辑（如本地启动页）
+    return;
+  }
+  // 命中插件压缩包时，阻止页面内其他 drop 逻辑继续处理
+  event.stopPropagation();
+  draggingPlugin.value = false;
+  for (const zipPath of zipPaths) {
+    // eslint-disable-next-line no-await-in-loop
+    await installPluginZip(zipPath);
+  }
+};
+
+onMounted(() => {
+  // 使用捕获阶段，优先于页面内的 drop 处理器
+  window.addEventListener('dragenter', onPluginDragEnter, true);
+  window.addEventListener('dragover', onPluginDragOver, true);
+  window.addEventListener('dragleave', onPluginDragLeave, true);
+  window.addEventListener('drop', onPluginDrop, true);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('dragenter', onPluginDragEnter, true);
+  window.removeEventListener('dragover', onPluginDragOver, true);
+  window.removeEventListener('dragleave', onPluginDragLeave, true);
+  window.removeEventListener('drop', onPluginDrop, true);
+});
 
 const init = () => store.dispatch('init');
 init();
@@ -258,6 +371,37 @@ init();
     }
     :deep(.ant-avatar) {
       background: transparent;
+    }
+  }
+}
+
+.plugin-drag-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: 2px dashed var(--ant-primary-color, #ff4ea4);
+  border-radius: 8px;
+  background: rgba(255, 78, 164, 0.08);
+  &__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--ant-primary-color, #ff4ea4);
+    span {
+      margin-top: 6px;
+      font-size: 12px;
+      font-weight: normal;
+      color: var(--color-text-desc, #999);
     }
   }
 }
