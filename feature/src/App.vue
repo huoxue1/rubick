@@ -100,8 +100,8 @@
     </div>
     <div v-if="draggingPlugin" class="plugin-drag-mask">
       <div class="plugin-drag-mask__inner">
-        松开鼠标，安装插件压缩包
-        <span>支持 .zip 格式的 Rubick 本地插件包</span>
+        松开鼠标，安装插件包
+        <span>支持 .rubick / .zip 格式的 Rubick 本地插件包</span>
       </div>
     </div>
   </div>
@@ -165,11 +165,14 @@ window.rubick.setSubInput((e: any) => {
   }
 }, '搜索插件');
 
-// ==================== 本地 zip 插件拖拽安装 ====================
+// ==================== 本地插件包拖拽安装 ====================
 const draggingPlugin = ref(false);
-
-const isZipFile = (filePath: string) =>
-  /\.zip$/i.test(String(filePath || '').trim());
+// 与 src/common/constans/pluginPackage.ts 保持一致（feature 子应用无法直接引用根工程路径）
+const PLUGIN_PACKAGE_EXTENSIONS = ['.rubick', '.zip'];
+const isPluginPackageFile = (filePath: string) => {
+  const matched = /\.([^./\\]+)$/.exec(String(filePath || ''));
+  return !!matched && PLUGIN_PACKAGE_EXTENSIONS.includes(`.${matched[1].toLowerCase()}`);
+};
 
 const getDroppedFilePaths = (event: DragEvent) =>
   Array.from(event.dataTransfer?.files || [])
@@ -241,17 +244,17 @@ const onPluginDrop = async (event: DragEvent) => {
   if (!filePaths.length) return;
   // 阻止 Electron 把拖入的文件当作页面导航
   event.preventDefault();
-  const zipPaths = filePaths.filter(isZipFile);
-  if (!zipPaths.length) {
-    // 非插件压缩包交给页面内自己的 drop 逻辑（如本地启动页）
+  const packagePaths = filePaths.filter(isPluginPackageFile);
+  if (!packagePaths.length) {
+    // 非插件包交给页面内自己的 drop 逻辑（如本地启动页）
     return;
   }
-  // 命中插件压缩包时，阻止页面内其他 drop 逻辑继续处理
+  // 命中插件包时，阻止页面内其他 drop 逻辑继续处理
   event.stopPropagation();
   draggingPlugin.value = false;
-  for (const zipPath of zipPaths) {
+  for (const packagePath of packagePaths) {
     // eslint-disable-next-line no-await-in-loop
-    await installPluginZip(zipPath);
+    await installPluginZip(packagePath);
   }
 };
 

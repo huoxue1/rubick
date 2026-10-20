@@ -1,9 +1,10 @@
 /**
- * 本地插件（zip 压缩包）安装器
+ * 本地插件包安装器
  *
  * 与 npm 安装的插件不同，这里的插件不经过 npm registry：
- * 压缩包解压后直接放到 PLUGIN_INSTALL_DIR/local/<name> 目录，
- * 由 LOCAL_PLUGINS 记录元数据，再由主进程 / 渲染进程按 localPath 加载。
+ * 插件包（`.rubick` / `.zip`，本质都是 zip 容器）解压后直接放到
+ * PLUGIN_INSTALL_DIR/local/<name> 目录，由 LOCAL_PLUGINS 记录元数据，
+ * 再由主进程 / 渲染进程按 localPath 加载。
  *
  * 该模块只负责「解压 + 校验 + 落盘」，不依赖 electron，方便单独测试。
  */
@@ -11,6 +12,10 @@ import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import extract from 'extract-zip';
+import {
+  isPluginPackagePath,
+  PLUGIN_PACKAGE_EXTENSIONS,
+} from '@/common/constans/pluginPackage';
 
 export type LocalPluginInstallErrorCode =
   | 'INVALID_ARGS'
@@ -38,7 +43,6 @@ export interface LocalPluginInstallResult {
   plugin?: Record<string, any>;
 }
 
-const ZIP_SUFFIX = '.zip';
 /** 单个压缩包大小上限 200MB */
 const MAX_ZIP_BYTES = 200 * 1024 * 1024;
 /** 压缩包内文件数量上限 */
@@ -159,13 +163,13 @@ const findMetadataRoot = (extractDir: string): string => {
   if (children.length === 0) {
     throw new InstallError(
       'INVALID_METADATA',
-      '压缩包中未找到 plugin.json 或 package.json，请检查压缩包根目录结构'
+      '插件包中未找到 plugin.json 或 package.json，请检查包根目录结构'
     );
   }
   if (children.length > 1) {
     throw new InstallError(
       'INVALID_METADATA',
-      '压缩包根目录下存在多个插件目录，请只打包一个插件'
+      '插件包根目录下存在多个插件目录，请只打包一个插件'
     );
   }
   return children[0];
@@ -409,7 +413,7 @@ export const cleanupStaleTempDirs = (installRoot: string): void => {
 };
 
 /**
- * 从 zip 压缩包安装本地插件。
+ * 从本地插件包（`.rubick` / `.zip`）安装插件。
  * 成功时返回插件记录（含 localPath / source），由调用方写入 LOCAL_PLUGINS。
  */
 export const installLocalPluginFromZip = async (
@@ -417,13 +421,16 @@ export const installLocalPluginFromZip = async (
   options: LocalPluginInstallOptions
 ): Promise<LocalPluginInstallResult> => {
   if (!zipPath || typeof zipPath !== 'string') {
-    return failure('INVALID_ARGS', '缺少插件压缩包路径');
+    return failure('INVALID_ARGS', '缺少插件包路径');
   }
-  if (path.extname(zipPath).toLowerCase() !== ZIP_SUFFIX) {
-    return failure('INVALID_ARGS', '仅支持 .zip 格式的插件压缩包');
+  if (!isPluginPackagePath(zipPath)) {
+    return failure(
+      'INVALID_ARGS',
+      `仅支持 ${PLUGIN_PACKAGE_EXTENSIONS.join(' / ')} 格式的插件包`
+    );
   }
   if (!isFile(zipPath)) {
-    return failure('INVALID_ARGS', `插件压缩包不存在：${zipPath}`);
+    return failure('INVALID_ARGS', `插件包不存在：${zipPath}`);
   }
   const installRoot = path.resolve(options.installRoot);
   const overwrite = !!options.overwrite;
@@ -434,12 +441,12 @@ export const installLocalPluginFromZip = async (
   try {
     zipStat = fs.statSync(zipPath);
   } catch (e) {
-    return failure('INVALID_ARGS', `插件压缩包不可读：${zipPath}`);
+    return failure('INVALID_ARGS', `插件包不可读：${zipPath}`);
   }
   if (zipStat.size > MAX_ZIP_BYTES) {
     return failure(
       'INVALID_ZIP',
-      `插件压缩包过大（上限 ${MAX_ZIP_BYTES / 1024 / 1024}MB）`
+      `插件包过大（上限 ${MAX_ZIP_BYTES / 1024 / 1024}MB）`
     );
   }
 
@@ -464,7 +471,7 @@ export const installLocalPluginFromZip = async (
           if (entryCount > MAX_ENTRY_COUNT) {
             throw new InstallError(
               'INVALID_ZIP',
-              `压缩包文件数量过多（上限 ${MAX_ENTRY_COUNT}）`
+              `插件包文件数量过多（上限 ${MAX_ENTRY_COUNT}）`
             );
           }
           uncompressedBytes +=
@@ -474,7 +481,7 @@ export const installLocalPluginFromZip = async (
           if (uncompressedBytes > MAX_UNCOMPRESSED_BYTES) {
             throw new InstallError(
               'INVALID_ZIP',
-              `压缩包解压后体积过大（上限 ${
+              `插件包解压后体积过大（上限 ${
                 MAX_UNCOMPRESSED_BYTES / 1024 / 1024
               }MB）`
             );
@@ -495,12 +502,12 @@ export const installLocalPluginFromZip = async (
       if (/out of bound|invalid relative path|absolute path/i.test(message)) {
         throw new InstallError(
           'INVALID_ZIP',
-          '压缩包中包含非法路径，请勿使用 ../ 等方式打包'
+          '插件包中包含非法路径，请勿使用 ../ 等方式打包'
         );
       }
       throw new InstallError(
         'INVALID_ZIP',
-        `解压插件压缩包失败：${message}`
+        `解压插件包失败：${message}`
       );
     }
 

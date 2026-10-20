@@ -29,8 +29,8 @@
     />
     <div v-if="draggingPlugin" class="plugin-drag-mask">
       <div class="plugin-drag-mask__inner">
-        松开鼠标，安装插件压缩包
-        <span>支持 .zip 格式的 Rubick 本地插件包</span>
+        松开鼠标，安装插件包
+        <span>支持 .rubick / .zip 格式的 Rubick 本地插件包</span>
       </div>
     </div>
   </div>
@@ -46,6 +46,7 @@ import createPluginManager from './plugins-manager';
 import useDrag from '../common/utils/dragWindow';
 import { getGlobal } from '@electron/remote';
 import { PLUGIN_HISTORY } from '@/common/constans/renderer';
+import { isPluginPackagePath } from '@/common/constans/pluginPackage';
 import { message } from 'ant-design-vue';
 import localConfig from './confOp';
 
@@ -182,11 +183,9 @@ const clearSearchValue = () => {
   setSearchValue('');
 };
 
-// ==================== 本地 zip 插件拖拽安装 ====================
+// ==================== 本地插件包拖拽安装 ====================
 const draggingPlugin = ref(false);
 
-const isZipFile = (filePath: string) =>
-  /\.zip$/i.test(String(filePath || '').trim());
 
 const installPluginZip = async (filePath: string, overwrite = false) => {
   try {
@@ -251,15 +250,15 @@ const onPluginDrop = async (event: DragEvent) => {
       }
     })
     .filter(Boolean);
-  const zipPaths = filePaths.filter(isZipFile);
-  if (!zipPaths.length) {
-    message.warning('仅支持拖入 .zip 格式的插件压缩包');
+  const packagePaths = filePaths.filter(isPluginPackagePath);
+  if (!packagePaths.length) {
+    message.warning('仅支持拖入 .rubick / .zip 格式的插件包');
     return;
   }
-  for (const zipPath of zipPaths) {
-    // 逐个安装，避免多个压缩包同时解压时 UI 反馈错乱
+  for (const packagePath of packagePaths) {
+    // 逐个安装，避免多个插件包同时解压时 UI 反馈错乱
     // eslint-disable-next-line no-await-in-loop
-    await installPluginZip(zipPath);
+    await installPluginZip(packagePath);
   }
 };
 

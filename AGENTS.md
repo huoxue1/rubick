@@ -20,7 +20,7 @@ Rubick 是一个基于 Electron + Vue 3 的**插件化桌面效率启动器**（
 | 主进程 API | [src/main/common/api.ts](src/main/common/api.ts) | 渲染进程 `msg-trigger` IPC 的实现 |
 | 插件 preload | [public/preload.js](public/preload.js) | 暴露 `window.rubick` 给插件页面 |
 | 插件管理器 | [src/core/plugin-handler/index.ts](src/core/plugin-handler/index.ts) | npm 安装/更新/卸载 |
-| zip 安装器 | [src/main/common/installLocalPlugin.ts](src/main/common/installLocalPlugin.ts) | 本地 zip 插件解压与校验 |
+| 插件包安装器 | [src/main/common/installLocalPlugin.ts](src/main/common/installLocalPlugin.ts) | 本地插件包（`.rubick` / `.zip`）解压与校验 |
 | 插件市场 | [feature/](feature/) | 市场、已安装、偏好设置等（内置插件 `rubick-system-feature`） |
 
 常用命令：
@@ -29,7 +29,7 @@ Rubick 是一个基于 Electron + Vue 3 的**插件化桌面效率启动器**（
 yarn install                 # 安装主工程依赖
 yarn electron:serve          # 开发模式启动 Rubick（主进程 + 主窗口）
 yarn feature:dev             # 单独启动插件市场前端（dev 端口 8081，需与 electron:serve 配合）
-yarn plugin:pack <dir> [out] # 把插件目录打成可拖拽安装的 .zip
+yarn plugin:pack <dir> [out] # 把插件目录打成可拖拽安装的 .rubick（兼容 .zip）
 yarn electron:build          # 打包安装包（需要先构建 feature 等子应用）
 ```
 
@@ -53,7 +53,7 @@ yarn electron:build          # 打包安装包（需要先构建 feature 等子�
 ### 1.2 安装位置与数据
 
 - npm 市场插件：`<userData>/rubick-plugins-new/node_modules/<name>/`
-- 本地 zip 插件：`<userData>/rubick-plugins-new/local/<name>/`
+- 本地插件包（`.rubick` / `.zip`）：`<userData>/rubick-plugins-new/local/<name>/`
 - 插件记录：`<userData>/rubick-plugins-new/rubick-local-plugin.json`
 - 插件业务数据：PouchDB（`<userData>/default`），可由 WebDAV 多端同步
 
@@ -92,8 +92,8 @@ const remote = require('@electron/remote');
 
 ```
 my-plugin/
-├── package.json     # 供 npm 分发；不需要 npm 时也要有 name（zip 安装器要求 plugin.json 或 package.json 二选一）
-├── plugin.json      # 插件元数据（推荐，zip 安装/本地加载以此为准）
+├── package.json     # 供 npm 分发；不需要 npm 时也要有 name（插件包安装器要求 plugin.json 或 package.json 二选一）
+├── plugin.json      # 插件元数据（推荐，插件包安装/本地加载以此为准）
 ├── index.html       # 插件页面入口（main 指向它）
 ├── main.js          # 页面脚本（可用任意前端框架/纯 JS）
 ├── preload.js       # 可选：插件自己的 preload
@@ -152,7 +152,7 @@ my-plugin/
 | `platform` | 可选 | 允许运行的系统：`darwin` / `win32` / `linux` 子集；不匹配会提示「插件不支持当前系统」 |
 | `development` | 仅开发 | 开发模式（Rubick 以 `electron:serve` 启动）下页面加载的 URL，如 `http://localhost:8080` |
 
-> 本地 zip 安装时，安装器会额外写入 `source: "zip"`、`localPath`、`installedAt`、`originZip` 等字段，
+> 本地插件包安装时，安装器会额外写入 `source: "zip"`、`localPath`、`installedAt`、`originZip` 等字段（`source` 为历史字段名，表示本地安装），
 > 这些由 Rubick 管理，**不要在 `plugin.json` 里手写**。
 
 ### 2.3 `features` 与命令（`cmds`）
@@ -436,8 +436,8 @@ window.rubick.screenCapture((dataURL) => {
 
 | API | 说明 |
 |---|---|
-| `rubick.createBrowserWindow(url, options, callback)` | 由插件创建独立 BrowserWindow。`options.name` 用来定位插件目录（目前按 npm 插件目录解析），`options.webPreferences.preload` 必填；`callback` 在 `dom-ready` 时调用。**本地 zip 插件暂不支持此 API**（找不到 `node_modules/<name>`），可改用 Node 的 `@electron/remote` 自行创建窗口 |
-| `rubick.installPluginFromZip(filePath, options?)` | 从 zip 安装插件（应用级能力，返回 Promise；普通插件一般不需要） |
+| `rubick.createBrowserWindow(url, options, callback)` | 由插件创建独立 BrowserWindow。`options.name` 用来定位插件目录（目前按 npm 插件目录解析），`options.webPreferences.preload` 必填；`callback` 在 `dom-ready` 时调用。**本地插件包安装的插件暂不支持此 API**（找不到 `node_modules/<name>`），可改用 Node 的 `@electron/remote` 自行创建窗口 |
+| `rubick.installPluginFromZip(filePath, options?)` | 从插件包（`.rubick` / `.zip`）安装插件（应用级能力，返回 Promise；普通插件一般不需要） |
 | `rubick.redirect(label, payload)` | ⚠️ 尚未实现（todo） |
 
 `createBrowserWindow` 示例：
@@ -522,16 +522,16 @@ module.exports = () => ({
 ### 4.3 安装方式
 
 - 插件市场（npm）：`pluginType: "system"` 分类；
-- 本地 zip：`plugin.json` 中写 `"pluginType": "system"`、`"entry": "main.js"`，拖拽安装后重启。
+- 本地插件包：`plugin.json` 中写 `"pluginType": "system"`、`"entry": "main.js"`，拖拽安装后重启。
 
 ---
 
 ## 5. 本地开发与调试
 
-### 5.1 快速测试（zip 方式，推荐给独立插件项目）
+### 5.1 快速测试（插件包方式，推荐给独立插件项目）
 
 ```bash
-# 在 Rubick 仓库根目录执行，把插件目录打成 zip（默认输出到插件目录同级的 <目录名>.zip）
+# 在 Rubick 仓库根目录执行，把插件目录打成插件包（默认输出到插件目录同级的 <目录名>.rubick）
 yarn plugin:pack /path/to/my-plugin
 
 # 或者直接使用脚本（可在插件项目目录内执行）
@@ -541,7 +541,7 @@ node /path/to/rubick/scripts/pack-plugin.js .
 然后：
 
 1. 启动 Rubick（开发模式 `yarn electron:serve`，或用已安装的 Rubick）；
-2. 把 zip 拖到 Rubick 主窗口 / 插件市场；
+2. 把 `.rubick`（或 `.zip`）插件包拖到 Rubick 主窗口 / 插件市场；
 3. 输入 `plugin.json` 里配置的命令词即可打开插件；
 4. 修改代码后重新 `plugin:pack` 并再拖一次（会询问是否覆盖）。
 
@@ -582,7 +582,7 @@ require('@electron/remote').getCurrentWebContents().openDevTools();
 |---|---|
 | 插件安装成功但搜不到 | `plugin.json` 是否有 `features` 且 `cmds` 非空；`pluginType` 是否为 `ui` |
 | 打开插件白屏 | `main` 路径是否正确；页面资源是否用相对路径；看 DevTools |
-| preload 没生效 | `preload` 相对路径是否正确；本地 zip 安装时文件是否在包内 |
+| preload 没生效 | `preload` 相对路径是否正确；本地插件包中是否包含该文件 |
 | 命令词冲突/不出现 | 换一个唯一的 `feature.code` 和更明确的关键词 |
 | 数据读写冲突 | `_id` 是否加了插件名前缀；文档是否超过 2MB |
 | 系统插件没反应 | 是否重启了 Rubick；`entry` 是否导出返回 hooks 的函数 |
@@ -591,42 +591,48 @@ require('@electron/remote').getCurrentWebContents().openDevTools();
 
 ## 6. 打包与分发
 
-### 6.1 打包成本地 zip 插件包（拖拽/离线分发）
+### 6.1 打包成本地插件包（`.rubick` / `.zip`，拖拽/离线分发）
+
+> `.rubick` 是推荐的专属后缀，`.zip` 同样支持；两者本质都是 zip 容器，可以互相改名。
+> 想换其他后缀（如 `.rpk`）时，同步修改
+> [src/common/constans/pluginPackage.ts](src/common/constans/pluginPackage.ts)、[scripts/pack-plugin.js](scripts/pack-plugin.js)、
+> [feature/src/App.vue](feature/src/App.vue)、[feature/src/views/installed/index.vue](feature/src/views/installed/index.vue)。
 
 **方式一：仓库脚本**
 
 ```bash
 yarn plugin:pack ./path/to/my-plugin
-yarn plugin:pack ./path/to/my-plugin ./dist/my-plugin.zip
+yarn plugin:pack ./path/to/my-plugin ./dist/my-plugin.rubick
 ```
 
-脚本实现见 [scripts/pack-plugin.js](scripts/pack-plugin.js)：自动排除 `node_modules`、`.git`、`.zip`、`.DS_Store`。
+脚本实现见 [scripts/pack-plugin.js](scripts/pack-plugin.js)：默认输出 `.rubick`，自动排除 `node_modules`、`.git`、`.zip`、`.rubick`、`.DS_Store`。
 
 **方式二：手动打包**
 
 ```bash
-# macOS / Linux
+# macOS / Linux（.rubick / .zip 本质都是 zip，改后缀即可）
 cd my-plugin
-zip -r ../my-plugin.zip . -x "*/node_modules/*" "node_modules/*" "*.zip"
+zip -r ../my-plugin.rubick . -x "*/node_modules/*" "node_modules/*" "*.zip" "*.rubick"
 
-# Windows PowerShell
+# Windows PowerShell（Compress-Archive 输出 .zip，之后可重命名为 .rubick）
 Compress-Archive -Path .\my-plugin\* -DestinationPath .\my-plugin.zip
+Rename-Item .\my-plugin.zip .\my-plugin.rubick
 ```
 
-**压缩包要求**（由 [installLocalPlugin.ts](src/main/common/installLocalPlugin.ts) 校验）：
+**插件包要求**（由 [installLocalPlugin.ts](src/main/common/installLocalPlugin.ts) 校验）：
 
-- 必须是 `.zip`；
+- 必须是 `.rubick` 或 `.zip`（zip 容器）；
 - 根目录或「唯一一级子目录」下包含 `plugin.json` 或 `package.json`；
 - ≤ 200MB；解压后 ≤ 500MB；文件数 ≤ 20000；
 - 不允许软链接（symlink）；
 - 不允许路径穿越（`../`、绝对路径）；
-- **不要包含 `node_modules`**：zip 安装不会执行 `npm install`，依赖请提前打包进产物；
+- **不要包含 `node_modules`**：本地安装不会执行 `npm install`，依赖请提前打包进产物；
 - 发布前确认 `main` / `preload` / `logo` 路径相对正确。
 
-### 6.2 安装、更新、卸载（zip 包）
+### 6.2 安装、更新、卸载（`.rubick` / `.zip`）
 
-- 安装：拖拽 zip 到主窗口/插件市场，或「已安装 → 安装本地插件」；
-- 更新：把新版本打成同名 zip 再拖入，确认覆盖即可（会替换插件目录，插件数据保留）；
+- 安装：拖拽 `.rubick` / `.zip` 插件包到主窗口/插件市场，或「已安装 → 安装本地插件」；
+- 更新：把新版本打成同名插件包再拖入，确认覆盖即可（会替换插件目录，插件数据保留）；
 - 卸载：插件市场 → 已安装 → 卸载（只删除插件目录与记录，PouchDB 数据保留）；
 - 安装位置：`<userData>/rubick-plugins-new/local/<name>/`。
 
@@ -684,7 +690,7 @@ hooks:      onPluginEnter | onPluginReady | onPluginOut | onShow | onHide
 
 - `isDarkColors()` 恒为 `false`，用 `rubick.theme` 代替；
 - `db.getAttachmentType()` 恒为 `null`；
-- `createBrowserWindow` 只按 npm 插件目录解析，本地 zip 插件不支持；
+- `createBrowserWindow` 只按 npm 插件目录解析，本地插件包安装的插件不支持；
 - `showNotification` 的 `clickFeatureCode`、`redirect` 未实现；
 - Linux 不支持截图和文件粘贴（`copyFile`/`screenCapture`）；
 - 所有 `db`/窗口 API 走同步 IPC，密集调用时注意性能。
@@ -700,5 +706,5 @@ hooks:      onPluginEnter | onPluginReady | onPluginOut | onShow | onHide
   - 插件加载：[src/main/browsers/runner.ts](src/main/browsers/runner.ts)
   - 系统插件：[src/main/common/registerSystemPlugin.ts](src/main/common/registerSystemPlugin.ts)
   - npm 插件管理：[src/core/plugin-handler/index.ts](src/core/plugin-handler/index.ts)
-  - zip 插件安装：[src/main/common/installLocalPlugin.ts](src/main/common/installLocalPlugin.ts)、[src/main/common/pluginInstaller.ts](src/main/common/pluginInstaller.ts)
-  - 本地 zip 使用说明：[docs/local-plugin-zip.md](docs/local-plugin-zip.md)
+  - 插件包安装：[src/main/common/installLocalPlugin.ts](src/main/common/installLocalPlugin.ts)、[src/main/common/pluginInstaller.ts](src/main/common/pluginInstaller.ts)
+  - 本地插件包使用说明：[docs/local-plugin-package.md](docs/local-plugin-package.md)

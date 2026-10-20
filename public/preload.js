@@ -40,8 +40,8 @@ window.rubick = {
     ipcSendSync('loadPlugin', plugin);
   },
   /**
-   * 从本地 zip 压缩包安装插件
-   * @param {string} filePath 压缩包绝对路径
+   * 从本地插件包（.rubick / .zip）安装插件
+   * @param {string} filePath 插件包绝对路径
    * @param {{ overwrite?: boolean }} options
    * @returns {Promise<{ success: boolean, code?: string, message?: string, plugin?: object, requireRestart?: boolean }>}
    */

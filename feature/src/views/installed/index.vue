@@ -254,7 +254,7 @@ const gotoFinder = () => {
   store.commit('commonUpdate', { active: ['finder'] });
 };
 
-// ==================== 本地 zip 插件安装 ====================
+// ==================== 本地插件包安装 ====================
 const installLocalPlugin = async (filePath, overwrite = false) => {
   try {
     const result = await window.rubick.installPluginFromZip(filePath, {
@@ -288,7 +288,7 @@ const installFromZip = async () => {
   const result = await window.rubick.showOpenDialog({
     title: '选择 Rubick 插件压缩包',
     properties: ['openFile'],
-    filters: [{ name: 'Rubick 插件压缩包', extensions: ['zip'] }],
+    filters: [{ name: 'Rubick 插件包（.rubick / .zip）', extensions: ['rubick', 'zip'] }],
   });
   const filePath = Array.isArray(result) ? result[0] : '';
   if (!filePath) return;

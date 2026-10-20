@@ -1,5 +1,5 @@
 /**
- * 本地 zip 插件安装的主进程入口：
+ * 本地插件包（.rubick / .zip）安装的主进程入口：
  * - 注册 ipcMain handler，供渲染进程（主窗口 / 插件市场）调用
  * - 安装成功后将插件记录写入 global.LOCAL_PLUGINS（与 npm 插件共用一份列表）
  */
@@ -48,7 +48,7 @@ export default function initPluginInstaller(): void {
         return {
           success: false,
           code: 'INVALID_ARGS',
-          message: '缺少插件压缩包路径',
+          message: '缺少插件包路径',
         };
       }
 

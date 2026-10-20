@@ -80,7 +80,7 @@ global.LOCAL_PLUGINS = {
         );
       }
       const plugins = global.LOCAL_PLUGINS.PLUGINS || [];
-      // 清理已被手动删除的本地 zip 插件记录
+      // 清理已被手动删除的本地插件包记录
       const validPlugins = plugins.filter((plugin) => {
         if (!plugin || typeof plugin !== 'object') return false;
         if (plugin.source === 'zip' || plugin.localPath) {
@@ -123,7 +123,7 @@ global.LOCAL_PLUGINS = {
     fs.writeFileSync(configPath, JSON.stringify(global.LOCAL_PLUGINS.PLUGINS));
   },
   async deletePlugin(plugin) {
-    // 本地 zip 插件由安装器直接管理目录，不经过 npm uninstall
+    // 本地插件包由安装器直接管理目录，不经过 npm uninstall
     if (plugin && plugin.source === 'zip' && plugin.localPath) {
       const pluginDir = path.resolve(plugin.localPath);
       const safeRoot = path.resolve(baseDir) + path.sep;
